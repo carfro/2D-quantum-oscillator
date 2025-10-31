@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quantum Harmonic Oscillator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)'], ['$', '$']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+  <main class="page">
+    <section class="card">
+      <header class="card__hdr">
+        <h1>Quantum Harmonic Oscillator</h1>
+        <p class="sub">
+          Explore Hermite‑Gaussian wavefunctions
+          <span class="math">\( \psi_{n_x,n_y}(x,y) \)</span>
+          rendered as a 3D surface with orbital controls.
+        </p>
+      </header>
+
+      <div id="canvas-wrap">
+        <!-- WebGL canvas injected here -->
+        <div class="overlay-tip">drag to rotate</div>
+      </div>
+
+  <div class="controls">
+        <div class="slider-row">
+          <label for="nSlider">
+            <span class="label">Quantum Numbers <span class="math">\( n_x, n_y \)</span></span>
+          </label>
+          <input id="nSlider" type="range" min="0" max="12" step="1" value="0" />
+          <div class="value math" id="nValue">\( n_x = n_y = 0 \)</div>
+        </div>
+
+        <div class="readouts">
+          <div class="pill">
+            <div class="pill__title">State</div>
+            <div class="pill__value math" id="statePsi">\( \psi_{0,0}(x, y) \)</div>
+          </div>
+          <div class="pill">
+            <div class="pill__title">Energy</div>
+            <div class="pill__value math" id="energyE">\( E = 1\hbar\omega \)</div>
+          </div>
+          <div class="pill">
+            <div class="pill__title">Degeneracy</div>
+            <div class="pill__value math" id="degeneracyG">\( 1 \)</div>
+          </div>
+        </div>
+
+        <button id="resetBtn" class="reset">Reset Parameters &amp; View</button>
+
+        <div class="debug">
+          <label class="debug__toggle">
+            <input type="checkbox" id="debugToggle" />
+            <span>Show diagnostics</span>
+          </label>
+          <div class="debug__stats mono" id="debugStats">z-range: —</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Three.js + controls -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
