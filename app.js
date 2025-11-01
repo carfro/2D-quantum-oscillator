@@ -513,8 +513,8 @@
     }
     if (!tickSpans.length) return;
     tickSpans.forEach((tick, idx) => {
-      const stepValue = sliderMin + idx * sliderStep;
-      tick.classList.toggle('is-active', stepValue <= value + 1e-6);
+      const ratio = sliderSteps === 0 ? 0 : idx / sliderSteps;
+      tick.classList.toggle('is-active', ratio <= progress + 1e-6);
     });
   }
 

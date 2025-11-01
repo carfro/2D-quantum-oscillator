@@ -211,6 +211,7 @@ body {
   left: 0;
   right: 0;
   top: 50%;
+  transform: translateY(-50%);
   height: 12px;
   pointer-events: none;
   z-index: 3;
@@ -231,7 +232,7 @@ body {
 .slider__ticks span.is-active {
   background: #5c9dff;
   box-shadow: 0 0 12px rgba(92, 157, 255, 0.65);
-  transform: scale(1.15);
+  transform: translate(-50%, -50%) scale(1.15);
 }
 
 .controls__readouts {
