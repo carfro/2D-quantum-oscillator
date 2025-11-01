@@ -449,10 +449,66 @@
   // --- UI wiring ---
   const quantumHeading = document.getElementById('quantumHeading');
   const nSlider = document.getElementById('nSlider');
+  const sliderRow = nSlider.closest('.controls__sliderRow');
+  const sliderTicks = sliderRow ? sliderRow.querySelector('.slider__ticks') : null;
   const stateEl = document.getElementById('statePsi');
   const energyE = document.getElementById('energyE');
   const degenEl = document.getElementById('degeneracyG');
   const resetBtn= document.getElementById('resetBtn');
+  const sliderMin = parseFloat(nSlider.min || '0');
+  const sliderMax = parseFloat(nSlider.max || '12');
+  const sliderStep = parseFloat(nSlider.step || '1');
+  const sliderSpan = sliderMax - sliderMin;
+  const sliderSteps = Math.round(sliderSpan / sliderStep);
+  const tickSpans = [];
+  const trackMetrics = { left: 0, width: 0 };
+
+  if (sliderTicks && sliderRow) {
+    sliderTicks.innerHTML = '';
+    sliderRow.style.setProperty('--tick-count', sliderSteps + 1);
+    for (let i = 0; i <= sliderSteps; i++) {
+      const tick = document.createElement('span');
+      sliderTicks.appendChild(tick);
+      tickSpans.push(tick);
+    }
+  }
+
+  layoutTicks();
+
+  function layoutTicks() {
+    if (!sliderRow) return;
+    const rowRect = sliderRow.getBoundingClientRect();
+    const sliderRect = nSlider.getBoundingClientRect();
+    const trackLeft = sliderRect.left - rowRect.left;
+    const trackWidth = sliderRect.width;
+    trackMetrics.left = trackLeft;
+    trackMetrics.width = Math.max(0, trackWidth);
+    sliderRow.style.setProperty('--slider-track-left', `${trackLeft}px`);
+    sliderRow.style.setProperty('--slider-track-right', `${Math.max(0, rowRect.width - (trackLeft + trackWidth))}px`);
+    sliderRow.style.setProperty('--slider-track-width', `${trackWidth}px`);
+    if (sliderTicks) {
+      tickSpans.forEach((tick, idx) => {
+        const ratio = sliderSteps === 0 ? 0 : idx / sliderSteps;
+        const x = trackLeft + ratio * trackMetrics.width;
+        tick.style.left = `${x}px`;
+      });
+    }
+    updateSliderDecor(parseFloat(nSlider.value || sliderMin));
+  }
+
+  function updateSliderDecor(value) {
+    const progressRaw = sliderSpan === 0 ? 0 : (value - sliderMin) / sliderSpan;
+    const progress = Math.min(1, Math.max(0, progressRaw));
+    if (sliderRow) {
+      const clampedWidth = Math.max(0, Math.min(trackMetrics.width, progress * trackMetrics.width));
+      sliderRow.style.setProperty('--slider-progress-px', `${clampedWidth}px`);
+    }
+    if (!tickSpans.length) return;
+    tickSpans.forEach((tick, idx) => {
+      const stepValue = sliderMin + idx * sliderStep;
+      tick.classList.toggle('is-active', stepValue <= value + 1e-6);
+    });
+  }
 
   function renderMath(el, latex) {
     el.innerHTML = `\\(${latex}\\)`;
@@ -477,6 +533,7 @@
     const coeff = (2 * n) + 1;     // E = (2n+1) ħω ; g = 2n+1
     renderMath(energyE, `E = ${coeff}\\,\\hbar\\omega`);
     renderMath(degenEl, `${coeff}`);
+    updateSliderDecor(n);
   };
 
   nSlider.addEventListener('input', (e) => {
@@ -491,12 +548,14 @@
   });
 
   setN(parseInt(nSlider.value, 10));
+  updateSliderDecor(parseInt(nSlider.value, 10));
   fitView();
 
   // --- Resize + render loop ---
   function onResize() {
     renderer.setSize(wrap.clientWidth, wrap.clientHeight);
     camera.aspect = wrap.clientWidth / wrap.clientHeight;
+    layoutTicks();
     fitView();
   }
   window.addEventListener('resize', onResize);
