@@ -449,7 +449,6 @@
   // --- UI wiring ---
   const quantumHeading = document.getElementById('quantumHeading');
   const nSlider = document.getElementById('nSlider');
-  const nValue  = document.getElementById('nValue');
   const stateEl = document.getElementById('statePsi');
   const energyE = document.getElementById('energyE');
   const degenEl = document.getElementById('degeneracyG');
@@ -464,8 +463,7 @@
 
   function renderHeading(n) {
     quantumHeading.innerHTML = `
-      Quantum Numbers <span class="math">\\( n_x, n_y \\)</span>
-      such that <span class="math">\\( n_x = n_y = ${n} \\)</span>
+      Quantum Numbers <span class="math">\\( n_x, n_y : n_x = n_y = ${n} \\)</span>
     `;
     if (window.MathJax && MathJax.typesetPromise) {
       MathJax.typesetPromise([quantumHeading]).catch(() => {});
@@ -475,7 +473,6 @@
   const setN = (n) => {
     startMorph(n);
     renderHeading(n);
-    renderMath(nValue, `n = ${n}`);
     renderMath(stateEl, `\\psi_{${n},${n}}(x, y)`);
     const coeff = (2 * n) + 1;     // E = (2n+1) ħω ; g = 2n+1
     renderMath(energyE, `E = ${coeff}\\,\\hbar\\omega`);
