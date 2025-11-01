@@ -64,6 +64,7 @@
 
   const DOMAIN = 4.0;       // x,y in [-DOMAIN, DOMAIN]
   const RES = 160;          // reduced grid for giant pearls (~26k points)
+  const STEP = (DOMAIN * 2.0) / (RES - 1);
   const HALF_X = DOMAIN;
   const HALF_Y = DOMAIN;
   const HALF_Z = 1.0;
@@ -76,7 +77,38 @@
   controls.zoomSpeed = 0.6;
   controls.target.set(0, 0, 0);
 
-  function fitView() {
+  const clock = new THREE.Clock();
+  const defaultView = {
+    position: new THREE.Vector3(0, 0, camera.position.z),
+    target: new THREE.Vector3(0, 0, 0)
+  };
+  const cameraTween = {
+    active: false,
+    fromPos: new THREE.Vector3(),
+    toPos: new THREE.Vector3(),
+    fromTarget: new THREE.Vector3(),
+    toTarget: new THREE.Vector3(),
+    start: 0,
+    duration: 0.8
+  };
+
+  function startCameraTween(destPos, destTarget, duration = 0.8) {
+    if (camera.position.distanceTo(destPos) < 1e-6 &&
+        controls.target.distanceTo(destTarget) < 1e-6) {
+      cameraTween.active = false;
+      return;
+    }
+    cameraTween.fromPos.copy(camera.position);
+    cameraTween.fromTarget.copy(controls.target);
+    cameraTween.toPos.copy(destPos);
+    cameraTween.toTarget.copy(destTarget);
+    cameraTween.start = clock.getElapsedTime();
+    cameraTween.duration = duration;
+    cameraTween.active = true;
+  }
+
+  function fitView(opts = {}) {
+    const { animate = false } = opts;
     const halfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
     const tanHalfFov = Math.tan(halfFov);
     const aspect = renderer.domElement.clientWidth / Math.max(1, renderer.domElement.clientHeight);
@@ -85,24 +117,26 @@
     const distX = HALF_X / (tanHalfFov * aspect);
     const dist = Math.max(distY, distX, HALF_Z * fitPadding) * fitPadding;
 
-    camera.position.set(0, 0, dist);
     camera.near = 0.1;
     camera.far = Math.max(100, dist + HALF_X * 4);
     camera.updateProjectionMatrix();
 
-    controls.target.set(0, 0, 0);
-    if (controls.target0) {
-      controls.target0.copy(controls.target);
+    defaultView.position.set(0, 0, dist);
+    defaultView.target.set(0, 0, 0);
+
+    if (animate) {
+      startCameraTween(defaultView.position, defaultView.target);
     } else {
-      controls.target0 = controls.target.clone();
+      cameraTween.active = false;
+      camera.position.copy(defaultView.position);
+      controls.target.copy(defaultView.target);
+      camera.lookAt(defaultView.target);
+      controls.update();
     }
-    if (controls.position0) {
-      controls.position0.copy(camera.position);
-    } else {
-      controls.position0 = camera.position.clone();
-    }
+
+    controls.target0 = defaultView.target.clone();
+    controls.position0 = defaultView.position.clone();
     controls.zoom0 = camera.zoom;
-    controls.update();
   }
 
   // --- Geometry (regular grid packed as points) ---
@@ -202,10 +236,17 @@
     uniform float u_pointSize;
     uniform float u_dpr;
     uniform float u_dotPx;
+    uniform float u_jitter;
     uniform float u_zScale;
 
     varying float vI;
     varying float vZ;
+    varying float vDist;
+
+    // hash utility for blue-noise style jitter
+    float hash21(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    }
 
     // normalized 1D Hermite–Gaussian via stable three-term recurrence
     float phi_n(float x, int n) {
@@ -241,18 +282,20 @@
       float zRaw = psi * u_amp;
       float zNorm = u_zScale > 0.0 ? zRaw * u_zScale : 0.0;
 
-      vec3 pos = vec3(x, y, zNorm);
+      vec2 jitter = (vec2(hash21(vec2(x, y)), hash21(vec2(y, x))) - 0.5) * u_jitter;
+      vec3 pos = vec3(x + jitter.x, y + jitter.y, zNorm);
 
       vec4 mv = modelViewMatrix * vec4(pos, 1.0);
       gl_Position = projectionMatrix * mv;
 
       float dist = max(0.0001, length(mv.xyz));
       float px = u_dotPx * u_dpr;
-      gl_PointSize = clamp(px * u_pointSize / dist, 1.0, 6.0 * u_dpr);
+      gl_PointSize = clamp(px * u_pointSize / dist, 1.0, 10.0 * u_dpr);
 
       // intensity used for brightness/alpha
       vI = abs(psi);
       vZ = clamp(zNorm, -1.0, 1.0);
+      vDist = dist;
     }
   `;
 
@@ -261,9 +304,28 @@
     precision highp float;
     varying float vI;
     varying float vZ;
+    varying float vDist;
 
-    // fixed aesthetic color: soft light gray (matches screenshots)
-    const vec3 BASE = vec3(0.90, 0.92, 0.96);
+    float srgbChannelToLinear(float c) {
+      return (c <= 0.04045) ? (c / 12.92) : pow((c + 0.055) / 1.055, 2.4);
+    }
+    vec3 srgbToLinear(vec3 c) {
+      return vec3(
+        srgbChannelToLinear(c.r),
+        srgbChannelToLinear(c.g),
+        srgbChannelToLinear(c.b)
+      );
+    }
+    float linearChannelToSrgb(float c) {
+      return (c <= 0.0031308) ? (c * 12.92) : 1.055 * pow(c, 1.0 / 2.4) - 0.055;
+    }
+    vec3 linearToSrgb(vec3 c) {
+      return vec3(
+        linearChannelToSrgb(c.r),
+        linearChannelToSrgb(c.g),
+        linearChannelToSrgb(c.b)
+      );
+    }
 
     void main() {
       // map to [-1,1]^2
@@ -285,25 +347,50 @@
       // contrast curve from ψ amplitude
       float gamma = 0.65;
       float I = pow(vI, gamma);
-      float shade = 0.35 + 0.65 * lambert + rim;
+      float shadeBase = 0.42 + 0.58 * lambert + rim;
 
-      // height-based tonal mapping (-1 → base plane, +1 → crest)
-      float h = clamp(0.5 * (vZ + 1.0), 0.0, 1.0);
-      float emphasis = smoothstep(0.0, 1.0, pow(h, 0.75));
-      float depthBoost = mix(0.18, 1.72, emphasis);
-      shade *= depthBoost;
+      // height-based remaps:
+      // crest     – normalized height in [0,1]
+      // fadeWide  – extended falloff controlling blue→white ramp
+      // crestFocus/crestGlow – accentuate the very top of the surface
+      float crest = clamp((vZ + 1.0) * 0.5, 0.0, 1.0);
+      float fadeWide = smoothstep(-0.9, 1.2, vZ);
+      float crestFocus = smoothstep(0.18, 0.95, crest);
+      float crestGlow = smoothstep(0.48, 0.95, crest);
 
-      // subtle warm-to-cool tint across height
-      vec3 tintLow = vec3(0.56, 0.64, 0.88);
-      vec3 tintHigh = vec3(1.10, 1.03, 0.92);
-      vec3 tint = mix(tintLow, tintHigh, emphasis);
+      // Diverging color map in linear RGB: negative trough (dark blue) → zero (neutral grey) → positive crest (bright white)
+      vec3 negColorLin = srgbToLinear(vec3(0.48, 0.58, 0.94));
+      vec3 zeroColorLin = srgbToLinear(vec3(0.40, 0.42, 0.46));
+      vec3 posColorLin = srgbToLinear(vec3(1.03, 1.02, 0.98));
 
-      // final color (no scene lights — baked shading)
-      vec3 col = BASE * tint * shade * (1.55 + 0.35 * I);
+      float posWeight = smoothstep(0.45, 1.0, vZ);
+      float negWeight = smoothstep(-1.0, -0.45, vZ);
+      // Blend toward the appropriate endpoint, then return to display (sRGB) space
+      vec3 baseLin = mix(negColorLin, zeroColorLin, negWeight);
+      baseLin = mix(baseLin, posColorLin, posWeight);
+      vec3 baseTone = linearToSrgb(baseLin);
 
-      // alpha balances density without blowing out additive blend
-      float alpha = mix(0.45, 0.70, emphasis) * (0.68 + 0.24 * I) * smoothstep(1.0, 0.82, r2);
-      gl_FragColor = vec4(col, alpha);
+      // gentle warm-to-cool tint
+      vec3 tintLow = vec3(0.56, 0.66, 0.90);
+      vec3 tintHigh = vec3(1.08, 1.04, 0.94);
+      vec3 tint = mix(tintLow, tintHigh, crestFocus);
+
+      float shadeStretch = mix(0.55, 1.38, fadeWide);
+      float crestBoost = mix(1.0, 3.6, crestFocus);
+      float apexGlow = mix(0.0, 2.6, crestGlow);
+      float densityGain = clamp(1.0 + 2.2 / (vDist + 0.35), 1.0, 4.8);
+
+      vec3 col = baseTone * tint * shadeBase * shadeStretch * (0.55 + 0.22 * I);
+      col *= crestBoost;
+
+      vec3 glow = tintHigh * apexGlow;
+      vec3 finalCol = (col + glow) * densityGain;
+
+      // float alpha = mix(0.36, 0.84, fadeWide) * (0.56 + 0.24 * I) * smoothstep(1.0, 0.82, r2);
+      float alpha = 0.64 * smoothstep(1.0, 0.82, r2);
+      alpha = min(alpha * densityGain, 1.0);
+
+      gl_FragColor = vec4(finalCol, alpha);
       // additive blend set on material => glow builds up like the reference
     }
   `;
@@ -323,14 +410,13 @@
       u_pointSize: { value: 1.0 },     // breathing multiplier
       u_dpr:       { value: Math.min(window.devicePixelRatio || 1, 2) },
       u_dotPx:     { value: 8.0 },     // target dot radius in px (doubled)
-      u_zScale:    { value: 1 }
+      u_zScale:    { value: 1 },
+      u_jitter:    { value: STEP * 0.35 }
     }
   });
 
   const points = new THREE.Points(geom, material);
   scene.add(points);
-
-  const clock = new THREE.Clock();
   let currentTarget = 0;
   const animation = { active: false, from: 0, to: 0, start: 0, duration: 0.65 };
 
@@ -361,17 +447,13 @@
   }
 
   // --- UI wiring ---
+  const quantumHeading = document.getElementById('quantumHeading');
   const nSlider = document.getElementById('nSlider');
   const nValue  = document.getElementById('nValue');
   const stateEl = document.getElementById('statePsi');
   const energyE = document.getElementById('energyE');
   const degenEl = document.getElementById('degeneracyG');
   const resetBtn= document.getElementById('resetBtn');
-  const debugToggle = document.getElementById('debugToggle');
-  const debugStats = document.getElementById('debugStats');
-  let debugEnabled = false;
-  let lastDebugUpdate = -Infinity;
-  const lastRange = { min: 0, max: 0 };
 
   function renderMath(el, latex) {
     el.innerHTML = `\\(${latex}\\)`;
@@ -380,17 +462,20 @@
     }
   }
 
-  function updateDebugStats(t, force = false) {
-    if (!debugEnabled) return;
-    if (!force && t - lastDebugUpdate < 0.2) return;
-    lastDebugUpdate = t;
-    const scale = material.uniforms.u_zScale.value;
-    debugStats.textContent = `z-range raw: ${lastRange.min.toFixed(3)} → ${lastRange.max.toFixed(3)} | scale ≈ ${scale.toFixed(3)}`;
+  function renderHeading(n) {
+    quantumHeading.innerHTML = `
+      Quantum Numbers <span class="math">\\( n_x, n_y \\)</span>
+      such that <span class="math">\\( n_x = n_y = ${n} \\)</span>
+    `;
+    if (window.MathJax && MathJax.typesetPromise) {
+      MathJax.typesetPromise([quantumHeading]).catch(() => {});
+    }
   }
 
   const setN = (n) => {
     startMorph(n);
-    renderMath(nValue, `n_x = n_y = ${n}`);
+    renderHeading(n);
+    renderMath(nValue, `n = ${n}`);
     renderMath(stateEl, `\\psi_{${n},${n}}(x, y)`);
     const coeff = (2 * n) + 1;     // E = (2n+1) ħω ; g = 2n+1
     renderMath(energyE, `E = ${coeff}\\,\\hbar\\omega`);
@@ -405,18 +490,7 @@
   resetBtn.addEventListener('click', () => {
     nSlider.value = 0;
     setN(0);
-    fitView();
-  });
-
-  debugToggle.addEventListener('change', (e) => {
-    debugEnabled = e.target.checked;
-    debugStats.classList.toggle('is-visible', debugEnabled);
-    if (debugEnabled) {
-      lastDebugUpdate = -Infinity;
-      updateDebugStats(clock.getElapsedTime(), true);
-    } else {
-      debugStats.textContent = 'z-range: —';
-    }
+    fitView({ animate: true });
   });
 
   setN(parseInt(nSlider.value, 10));
@@ -446,16 +520,26 @@
         currentTarget = animation.to;
       }
     }
+    if (cameraTween.active) {
+      const elapsed = t - cameraTween.start;
+      const norm = Math.min(elapsed / cameraTween.duration, 1);
+      const eased = 1.0 - Math.pow(1.0 - norm, 3.0);
+      camera.position.lerpVectors(cameraTween.fromPos, cameraTween.toPos, eased);
+      controls.target.lerpVectors(cameraTween.fromTarget, cameraTween.toTarget, eased);
+      if (norm >= 1) {
+        camera.position.copy(cameraTween.toPos);
+        controls.target.copy(cameraTween.toTarget);
+        camera.lookAt(cameraTween.toTarget);
+        cameraTween.active = false;
+      }
+    }
     const mix = material.uniforms.u_mix.value;
     const n0 = material.uniforms.u_n0.value;
     const n1 = material.uniforms.u_n1.value;
     const amp = material.uniforms.u_amp.value;
     const range = computeZStats(n0, n1, mix, amp);
-    lastRange.min = range.min;
-    lastRange.max = range.max;
     const scale = range.maxAbs > 1e-6 ? (1.0 / range.maxAbs) : 0.0;
     material.uniforms.u_zScale.value = scale;
-    updateDebugStats(t);
     // barely-perceptible breathing
     material.uniforms.u_pointSize.value = 1.0 + 0.03 * Math.sin(t * 0.8);
     controls.update();

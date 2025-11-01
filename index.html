@@ -35,39 +35,49 @@
         <div class="overlay-tip">drag to rotate</div>
       </div>
 
-  <div class="controls">
-        <div class="slider-row">
-          <label for="nSlider">
-            <span class="label">Quantum Numbers <span class="math">\( n_x, n_y \)</span></span>
-          </label>
-          <input id="nSlider" type="range" min="0" max="12" step="1" value="0" />
-          <div class="value math" id="nValue">\( n_x = n_y = 0 \)</div>
+      <div class="controls">
+        <div class="controls__bar">
+          <h2 class="controls__title" id="quantumHeading">
+            Quantum Numbers <span class="math">\( n_x, n_y \)</span> such that <span class="math">\( n_x = n_y = 0 \)</span>
+          </h2>
+          <div class="controls__sliderRow">
+            <input id="nSlider" type="range" min="0" max="12" step="1" value="0" aria-describedby="quantumHeading" />
+            <output class="controls__value math" id="nValue" for="nSlider">\( n = 0 \)</output>
+          </div>
+
+          <div class="controls__readouts">
+            <div class="pill">
+              <div class="pill__title">State</div>
+              <div class="pill__value math" id="statePsi">\( \psi_{0,0}(x, y) \)</div>
+            </div>
+            <div class="pill">
+              <div class="pill__title">Energy</div>
+              <div class="pill__value math" id="energyE">\( E = 1\hbar\omega \)</div>
+            </div>
+            <div class="pill">
+              <div class="pill__title">Degeneracy</div>
+              <div class="pill__value math" id="degeneracyG">\( 1 \)</div>
+            </div>
+          </div>
+
+          <button id="resetBtn" class="reset">Reset Parameters &amp; View</button>
         </div>
 
-        <div class="readouts">
-          <div class="pill">
-            <div class="pill__title">State</div>
-            <div class="pill__value math" id="statePsi">\( \psi_{0,0}(x, y) \)</div>
+        <details class="theory" id="theoryPanel">
+          <summary class="theory__summary">Theory &amp; Derivation</summary>
+          <div class="theory__body">
+            <p>
+              This surface plots the Hermite–Gaussian eigenfunctions of the isotropic 2D quantum harmonic oscillator:
+              <span class="math">\( \psi_{n_x,n_y}(x,y) = \phi_{n_x}(x)\,\phi_{n_y}(y) \)</span>.
+            </p>
+            <p>
+              Each one-dimensional mode is given by
+              <span class="math">\( \phi_n(\xi) = \frac{1}{\sqrt{2^n n!}} H_n(\xi)\, e^{-\xi^2/2} \)</span>,
+              and the energy spectrum follows
+              <span class="math">\( E_{n_x,n_y} = (n_x+n_y+1)\hbar\omega \)</span>.
+            </p>
           </div>
-          <div class="pill">
-            <div class="pill__title">Energy</div>
-            <div class="pill__value math" id="energyE">\( E = 1\hbar\omega \)</div>
-          </div>
-          <div class="pill">
-            <div class="pill__title">Degeneracy</div>
-            <div class="pill__value math" id="degeneracyG">\( 1 \)</div>
-          </div>
-        </div>
-
-        <button id="resetBtn" class="reset">Reset Parameters &amp; View</button>
-
-        <div class="debug">
-          <label class="debug__toggle">
-            <input type="checkbox" id="debugToggle" />
-            <span>Show diagnostics</span>
-          </label>
-          <div class="debug__stats mono" id="debugStats">z-range: —</div>
-        </div>
+        </details>
       </div>
     </section>
   </main>
