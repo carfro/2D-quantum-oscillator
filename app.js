@@ -479,17 +479,25 @@
     if (!sliderRow) return;
     const rowRect = sliderRow.getBoundingClientRect();
     const sliderRect = nSlider.getBoundingClientRect();
-    const trackLeft = sliderRect.left - rowRect.left;
-    const trackWidth = sliderRect.width;
-    trackMetrics.left = trackLeft;
-    trackMetrics.width = Math.max(0, trackWidth);
-    sliderRow.style.setProperty('--slider-track-left', `${trackLeft}px`);
-    sliderRow.style.setProperty('--slider-track-right', `${Math.max(0, rowRect.width - (trackLeft + trackWidth))}px`);
-    sliderRow.style.setProperty('--slider-track-width', `${trackWidth}px`);
+    const computed = window.getComputedStyle(sliderRow);
+    const thumbSize = parseFloat(computed.getPropertyValue('--slider-thumb-size')) || 20;
+    const trackLeftRaw = sliderRect.left - rowRect.left;
+    const trackWidthRaw = sliderRect.width;
+    const trackStart = trackLeftRaw + thumbSize * 0.5;
+    const effectiveWidth = Math.max(0, trackWidthRaw - thumbSize);
+    const trackEnd = trackStart + effectiveWidth;
+
+    trackMetrics.left = trackStart;
+    trackMetrics.width = effectiveWidth;
+    trackMetrics.thumb = thumbSize;
+
+    sliderRow.style.setProperty('--slider-track-left', `${trackStart}px`);
+    sliderRow.style.setProperty('--slider-track-right', `${Math.max(0, rowRect.width - trackEnd)}px`);
+    sliderRow.style.setProperty('--slider-track-width', `${Math.max(0, effectiveWidth)}px`);
     if (sliderTicks) {
       tickSpans.forEach((tick, idx) => {
         const ratio = sliderSteps === 0 ? 0 : idx / sliderSteps;
-        const x = trackLeft + ratio * trackMetrics.width;
+        const x = ratio * effectiveWidth;
         tick.style.left = `${x}px`;
       });
     }
@@ -500,8 +508,8 @@
     const progressRaw = sliderSpan === 0 ? 0 : (value - sliderMin) / sliderSpan;
     const progress = Math.min(1, Math.max(0, progressRaw));
     if (sliderRow) {
-      const clampedWidth = Math.max(0, Math.min(trackMetrics.width, progress * trackMetrics.width));
-      sliderRow.style.setProperty('--slider-progress-px', `${clampedWidth}px`);
+      const fillPx = Math.max(0, Math.min(trackMetrics.width, progress * trackMetrics.width));
+      sliderRow.style.setProperty('--slider-progress-px', `${fillPx}px`);
     }
     if (!tickSpans.length) return;
     tickSpans.forEach((tick, idx) => {
