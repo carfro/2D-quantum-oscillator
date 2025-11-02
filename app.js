@@ -458,6 +458,10 @@
   const theoryPanel = document.getElementById('theoryPanel');
   const theorySummary = theoryPanel ? theoryPanel.querySelector('.theory__summary') : null;
   const theoryBody = theoryPanel ? theoryPanel.querySelector('.theory__body') : null;
+  const theorySummaryLabel = theorySummary ? theorySummary.querySelector('.theory__summaryLabel') : null;
+  const theoryHeading = theoryBody ? theoryBody.querySelector('.theory__heading') : null;
+  const theoryHeadingPrimary = theoryHeading ? theoryHeading.querySelector('.theory__headingPrimary') : null;
+  const theoryHeadingSecondary = theoryHeading ? theoryHeading.querySelector('.theory__headingSecondary') : null;
   const sliderMin = parseFloat(nSlider.min || '0');
   const sliderMax = parseFloat(nSlider.max || '12');
   const sliderStep = parseFloat(nSlider.step || '1');
@@ -478,29 +482,39 @@
 
   layoutTicks();
 
+  if (typeof ResizeObserver !== 'undefined' && sliderRow) {
+    const resizeObserver = new ResizeObserver(() => {
+      layoutTicks();
+    });
+    resizeObserver.observe(sliderRow);
+    resizeObserver.observe(nSlider);
+  } else {
+    window.addEventListener('load', layoutTicks);
+  }
+
   function layoutTicks() {
     if (!sliderRow) return;
-    const rowRect = sliderRow.getBoundingClientRect();
-    const sliderRect = nSlider.getBoundingClientRect();
     const computed = window.getComputedStyle(sliderRow);
+    const rowWidth = sliderRow.clientWidth;
+    const padLeft = parseFloat(computed.paddingLeft) || 0;
+    const padRight = parseFloat(computed.paddingRight) || 0;
     const thumbSize = parseFloat(computed.getPropertyValue('--slider-thumb-size')) || 20;
-    const trackLeftRaw = sliderRect.left - rowRect.left;
-    const trackWidthRaw = sliderRect.width;
-    const trackStart = trackLeftRaw + thumbSize * 0.5;
-    const effectiveWidth = Math.max(0, trackWidthRaw - thumbSize);
-    const trackEnd = trackStart + effectiveWidth;
+
+    const trackStart = padLeft + thumbSize * 0.5;
+    const trackWidth = Math.max(0, rowWidth - padLeft - padRight - thumbSize);
+    const trackEnd = trackStart + trackWidth;
 
     trackMetrics.left = trackStart;
-    trackMetrics.width = effectiveWidth;
+    trackMetrics.width = trackWidth;
     trackMetrics.thumb = thumbSize;
 
     sliderRow.style.setProperty('--slider-track-left', `${trackStart}px`);
-    sliderRow.style.setProperty('--slider-track-right', `${Math.max(0, rowRect.width - trackEnd)}px`);
-    sliderRow.style.setProperty('--slider-track-width', `${Math.max(0, effectiveWidth)}px`);
+    sliderRow.style.setProperty('--slider-track-right', `${Math.max(0, rowWidth - trackEnd)}px`);
+    sliderRow.style.setProperty('--slider-track-width', `${Math.max(0, trackWidth)}px`);
     if (sliderTicks) {
       tickSpans.forEach((tick, idx) => {
         const ratio = sliderSteps === 0 ? 0 : idx / sliderSteps;
-        const x = ratio * effectiveWidth;
+        const x = ratio * trackWidth;
         tick.style.left = `${x}px`;
       });
     }
@@ -524,7 +538,11 @@
   function renderMath(el, latex) {
     el.innerHTML = `\\(${latex}\\)`;
     if (window.MathJax && MathJax.typesetPromise) {
-      MathJax.typesetPromise([el]).catch(() => {});
+      MathJax.typesetPromise([el])
+        .then(() => layoutTicks())
+        .catch(() => {});
+    } else {
+      layoutTicks();
     }
   }
 
@@ -558,19 +576,226 @@
     fitView({ animate: true });
   });
 
-  if (theoryPanel && theoryBody) {
+  if (theoryPanel && theorySummary && theorySummaryLabel && theoryBody && theoryHeadingPrimary) {
+    let theoryAnimating = false;
+
+    const easeOut = 'cubic-bezier(0.2, 0.0, 0, 1)';
+
+    const createMorphNode = (text, referenceEl) => {
+      const node = document.createElement('span');
+      node.className = 'theory__morphNode';
+      const refStyle = window.getComputedStyle(referenceEl);
+      node.textContent = text;
+      node.style.fontFamily = refStyle.fontFamily;
+      node.style.fontWeight = refStyle.fontWeight;
+      node.style.fontSize = refStyle.fontSize;
+      node.style.lineHeight = refStyle.lineHeight;
+      node.style.letterSpacing = refStyle.letterSpacing;
+      node.style.textTransform = refStyle.textTransform;
+      node.style.whiteSpace = refStyle.whiteSpace;
+      node.style.color = refStyle.color;
+      node.style.transformOrigin = 'left top';
+      node.style.opacity = '1';
+      return node;
+    };
+
+    const setSummaryOpacity = (value) => {
+      theorySummaryLabel.style.opacity = value;
+    };
+
+    const runMorph = ({ fromRect, toRect, direction }) => {
+      const morph = createMorphNode(theorySummaryLabel.textContent || '', theoryHeadingPrimary);
+      const ratioX = toRect.width === 0 ? 1 : fromRect.width / toRect.width;
+      const ratioY = toRect.height === 0 ? 1 : fromRect.height / toRect.height;
+
+      const startScaleX = direction === 'open' ? ratioX : 1;
+      const startScaleY = direction === 'open' ? ratioY : 1;
+      const endScaleX = direction === 'open' ? 1 : (ratioX === 0 ? 1 : 1 / ratioX);
+      const endScaleY = direction === 'open' ? 1 : (ratioY === 0 ? 1 : 1 / ratioY);
+
+      const startTransform = `translate(${fromRect.left}px, ${fromRect.top}px) scale(${startScaleX}, ${startScaleY})`;
+      const endTransform = `translate(${toRect.left}px, ${toRect.top}px) scale(${endScaleX}, ${endScaleY})`;
+
+      morph.style.transform = startTransform;
+      document.body.appendChild(morph);
+
+      const animation = morph.animate(
+        [
+          { transform: startTransform, opacity: 1 },
+          { transform: endTransform, opacity: 1 }
+        ],
+        {
+          duration: direction === 'open' ? 620 : 540,
+          easing: direction === 'open'
+            ? 'cubic-bezier(0.18, 0.0, 0.0, 1)'
+            : 'cubic-bezier(0.33, 0.0, 0.07, 1)',
+          fill: 'forwards'
+        }
+      );
+
+      return { animation, morph };
+    };
+
+    const animateTheoryOpen = () => {
+      if (theoryAnimating || theoryPanel.open && theoryPanel.dataset.state === 'open') return;
+      theoryAnimating = true;
+
+      const summaryRect = theorySummaryLabel.getBoundingClientRect();
+      theoryPanel.dataset.state = 'opening';
+      theoryPanel.open = true;
+      theorySummary.setAttribute('aria-expanded', 'true');
+
+      requestAnimationFrame(() => {
+        const headingRect = theoryHeadingPrimary.getBoundingClientRect();
+
+        if (theoryBody) {
+          theoryBody.style.opacity = '0';
+          theoryBody.style.transform = 'translateY(14px)';
+          theoryBody.style.pointerEvents = 'none';
+        }
+        if (theoryHeadingPrimary) {
+          theoryHeadingPrimary.style.opacity = '0';
+        }
+        if (theoryHeadingSecondary) {
+          theoryHeadingSecondary.style.opacity = '0';
+        }
+
+        const { animation: morphAnim, morph } = runMorph({
+          fromRect: summaryRect,
+          toRect: headingRect,
+          direction: 'open'
+        });
+
+        setSummaryOpacity('0');
+        theorySummaryLabel.setAttribute('aria-hidden', 'true');
+
+        morphAnim.onfinish = () => {
+          morph.remove();
+          if (theoryHeadingPrimary) {
+            theoryHeadingPrimary.style.opacity = '1';
+            requestAnimationFrame(() => {
+              theoryHeadingPrimary.style.opacity = '';
+            });
+          }
+          if (theoryBody) {
+            theoryBody.animate(
+              [
+                { opacity: 0, transform: 'translateY(14px)' },
+                { opacity: 1, transform: 'translateY(0)' }
+              ],
+              { duration: 320, easing: easeOut, fill: 'forwards' }
+            ).onfinish = () => {
+              theoryBody.style.opacity = '';
+              theoryBody.style.transform = '';
+              theoryBody.style.pointerEvents = '';
+            };
+          }
+          if (theoryHeadingSecondary) {
+            theoryHeadingSecondary.animate(
+              [
+                { opacity: 0, transform: 'translateY(8px)' },
+                { opacity: 1, transform: 'translateY(0)' }
+              ],
+              { duration: 320, easing: easeOut, delay: 160, fill: 'forwards' }
+            ).onfinish = () => {
+              theoryHeadingSecondary.style.opacity = '';
+              theoryHeadingSecondary.style.transform = '';
+            };
+          }
+          theoryPanel.dataset.state = 'open';
+          theoryAnimating = false;
+        };
+      });
+    };
+
+    const animateTheoryClose = () => {
+      if (theoryAnimating || !theoryPanel.open) return;
+      theoryAnimating = true;
+      theoryPanel.dataset.state = 'closing';
+
+      const headingRect = theoryHeadingPrimary.getBoundingClientRect();
+      const summaryRect = theorySummaryLabel.getBoundingClientRect();
+
+      if (theoryHeadingSecondary) {
+        theoryHeadingSecondary.style.opacity = '0';
+      }
+      if (theoryHeadingPrimary) {
+        theoryHeadingPrimary.style.opacity = '0';
+      }
+      if (theoryBody) {
+        theoryBody.animate(
+          [
+            { opacity: 1, transform: 'translateY(0)' },
+            { opacity: 0, transform: 'translateY(12px)' }
+          ],
+          { duration: 260, easing: easeOut, fill: 'forwards' }
+        ).onfinish = () => {
+          theoryBody.style.opacity = '';
+          theoryBody.style.transform = '';
+          theoryBody.style.pointerEvents = '';
+        };
+        theoryBody.style.pointerEvents = 'none';
+      }
+
+      const { animation: morphAnim, morph } = runMorph({
+        fromRect: headingRect,
+        toRect: summaryRect,
+        direction: 'close'
+      });
+
+      morphAnim.onfinish = () => {
+        morph.remove();
+        setSummaryOpacity('1');
+        requestAnimationFrame(() => {
+          theorySummaryLabel.style.opacity = '';
+        });
+        theorySummaryLabel.setAttribute('aria-hidden', 'false');
+        theoryPanel.open = false;
+        theoryPanel.dataset.state = 'closed';
+        theorySummary.setAttribute('aria-expanded', 'false');
+        if (theoryHeadingPrimary) {
+          theoryHeadingPrimary.style.opacity = '';
+        }
+        if (theoryHeadingSecondary) {
+          theoryHeadingSecondary.style.opacity = '';
+          theoryHeadingSecondary.style.transform = '';
+        }
+        theoryAnimating = false;
+        if (typeof theorySummary.focus === 'function') {
+          theorySummary.focus({ preventScroll: true });
+        }
+      };
+    };
+
+    const toggleTheoryPanel = (explicit) => {
+      const target = typeof explicit === 'boolean' ? explicit : !theoryPanel.open;
+      if (target) {
+        animateTheoryOpen();
+      } else {
+        animateTheoryClose();
+      }
+    };
+
+    theorySummary.addEventListener('click', (event) => {
+      event.preventDefault();
+      toggleTheoryPanel();
+    });
+
+    theorySummary.addEventListener('keydown', (event) => {
+      if (event.key === ' ' || event.key === 'Enter') {
+        event.preventDefault();
+        toggleTheoryPanel();
+      }
+    });
+
     theoryBody.addEventListener('click', (event) => {
-      // Allow text selection without collapsing when user is actively selecting
       const selection = window.getSelection && window.getSelection();
       if (selection && selection.toString().length) return;
       event.preventDefault();
-      event.stopPropagation();
-      if (!theoryPanel.open) return;
-      theoryPanel.open = false;
-      if (theorySummary && typeof theorySummary.focus === 'function') {
-        theorySummary.focus({ preventScroll: true });
-      }
+      toggleTheoryPanel(false);
     });
+
+    theoryPanel.dataset.state = theoryPanel.open ? 'open' : 'closed';
   }
 
   setN(parseInt(nSlider.value, 10));

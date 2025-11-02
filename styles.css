@@ -299,6 +299,12 @@ body {
   justify-content: space-between;
   align-items: center;
 }
+.theory__summaryLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.3s ease;
+}
 .theory__summary:focus-visible {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
   border-radius: 10px;
@@ -317,9 +323,29 @@ body {
 .theory[open] .theory__summary::after {
   transform: rotate(180deg);
 }
+.theory__heading {
+  margin: 14px 0 10px;
+  font-size: clamp(20px, 3vw, 26px);
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.18;
+  display: inline-flex;
+  flex-wrap: wrap;
+  column-gap: 10px;
+  row-gap: 6px;
+}
+.theory__headingPrimary,
+.theory__headingSecondary {
+  display: inline-flex;
+  align-items: baseline;
+}
+.theory__headingSecondary {
+  color: rgba(243, 244, 246, 0.78);
+  font-weight: 600;
+}
 .theory__body {
   padding: 0 18px 18px;
-  color: var(--muted);
+  color: var(--ink);
   font-size: 14px;
   display: grid;
   gap: 10px;
@@ -329,6 +355,20 @@ body {
 .theory__body p {
   margin: 0;
   line-height: 1.5;
+}
+
+.theory__morphNode {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 999;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  color: var(--ink);
+  text-shadow: 0 0 10px rgba(44, 90, 180, 0.25);
+  will-change: transform, opacity;
 }
 
 @media (max-width: 900px) {
