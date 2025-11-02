@@ -82,7 +82,16 @@
             V(x, y) = \tfrac{1}{2} m \omega^2 (x^2 + y^2).
             $$</div>
             <p>
-              It obeys the stationary Schr&ouml;dinger equation
+              This potential produces a <strong>linear restoring force</strong>,
+            </p>
+            <div class="math">$$
+            \mathbf{F} = -\nabla V = -m\omega^2 (x, y),
+            $$</div>
+            <p>
+              pulling the particle back toward the origin. Such a force is the simplest model of small oscillations around a stable equilibrium and underlies a vast range of physical systems.
+            </p>
+            <p>
+              The particle&rsquo;s stationary states obey the time-independent Schr&ouml;dinger equation,
             </p>
             <div class="math">$$
             \hat{H}\Psi(x,y) = E\Psi(x,y), \qquad
@@ -98,38 +107,50 @@
             <div class="math">$$
             \Psi_{n_x,n_y}(x,y) = \psi_{n_x}(x)\psi_{n_y}(y).
             $$</div>
+            <p>
+              This separability reflects the isotropy of the potential: motion along \( x \) and \( y \) are independent, yet the total energy depends on their combined excitation.
+            </p>
 
             <h3>One-Dimensional Solution</h3>
             <p>
-              Each factor satisfies the 1D oscillator equation
+              Each factor satisfies the one-dimensional oscillator equation,
             </p>
             <div class="math">$$
             -\frac{\hbar^2}{2m}\frac{d^2\psi_n(x)}{dx^2}
             + \frac{1}{2}m\omega^2 x^2\psi_n(x)
             = E_n\psi_n(x),
             $$</div>
-            <p>whose normalized solutions are</p>
+            <p>
+              whose normalized eigenfunctions are
+            </p>
             <div class="math">$$
             \psi_n(x) =
             \frac{1}{\sqrt{2^n n!}}
             \left(\frac{m\omega}{\pi\hbar}\right)^{1/4}
             e^{-m\omega x^2 / 2\hbar}
-            H_n\left(\sqrt{\tfrac{m\omega}{\hbar}}x\right),
+            H_n\left(\sqrt{\tfrac{m\omega}{\hbar}}\,x\right),
             $$</div>
             <p>
-              where \( H_n(x) \) are the <strong>Hermite polynomials</strong> and
+              where \( H_n(x) \) are the <strong>Hermite polynomials</strong>, and the corresponding energy levels are
             </p>
             <div class="math">$$
             E_n = \hbar\omega\left(n + \tfrac{1}{2}\right).
             $$</div>
+            <p>
+              Mathematically this is an example of a Sturm&ndash;Liouville eigenvalue problem whose solutions form a complete orthonormal basis for \( L^2(\mathbb{R}) \). Physically, it represents quantized vibrations&mdash;each state corresponding to a discrete number of quanta of energy \( \hbar\omega \).
+            </p>
 
             <h3>Hermite Polynomials</h3>
-            <p>The Hermite polynomials arise from differentiating a Gaussian:</p>
+            <p>
+              The Hermite polynomials emerge naturally from differentiating a Gaussian (Rodrigues&rsquo; formula),
+            </p>
             <div class="math">$$
             H_n(x) = (-1)^n e^{x^2}
             \frac{d^n}{dx^n}\left(e^{-x^2}\right),
             $$</div>
-            <p>and satisfy the recurrence relations</p>
+            <p>
+              and obey the recurrence relations,
+            </p>
             <div class="math">$$
             \begin{aligned}
             H_0(x) &= 1, \qquad H_1(x) = 2x,\\[4pt]
@@ -137,35 +158,47 @@
             \end{aligned}
             $$</div>
             <p>
-              In the normalized Hermite&ndash;Gaussian basis, this recurrence becomes numerically stable and forms the foundation for the GPU implementation you see rendered above.
+              They form the algebraic skeleton of the oscillator&rsquo;s solutions: each successive polynomial introduces an additional node in the wavefunction, corresponding to higher excitation and greater curvature in the potential well.
+            </p>
+            <p>
+              In the normalized Hermite&ndash;Gaussian basis, this recurrence becomes numerically stable and forms the foundation for the GPU implementation rendered in the applet above.
             </p>
 
             <h3>Energy Spectrum and Degeneracy</h3>
             <p>
-              In two dimensions, the total energy is the sum of the two independent oscillators:
+              In two dimensions, the total energy is the sum of two independent oscillators,
             </p>
             <div class="math">$$
             E_{n_x,n_y}
             = \hbar\omega(n_x + n_y + 1),
             $$</div>
             <p>
-              and all pairs of quantum numbers with the same \( N = n_x + n_y \) share the same energy &mdash; a degeneracy of
+              and all pairs of quantum numbers with the same
+            </p>
+            <div class="math">$$
+            N = n_x + n_y
+            $$</div>
+            <p>
+              share the same energy. The degeneracy of the level is therefore
             </p>
             <div class="math">$$
             g_N = N + 1.
             $$</div>
-
-            <h3>Physical Insight</h3>
             <p>
-              The 2D harmonic oscillator describes vibrations and excitations wherever a restoring force is linear near equilibrium &mdash; for instance:
+              This degeneracy reflects the rotational symmetry of the potential: all states with the same total excitation lie on the same energy &ldquo;shell&rdquo; in the \( (n_x, n_y) \)-plane.
+            </p>
+
+            <h3>Physical Realizations and Applications</h3>
+            <p>
+              The two-dimensional harmonic oscillator captures the universal behavior of systems governed by <strong>linear restoring forces</strong> near equilibrium. Whenever the potential energy can be approximated as quadratic in small displacements, the local dynamics reduce to harmonic motion. Examples include:
             </p>
             <ul>
-              <li><strong>Phonon modes</strong> in crystal lattices (each atom behaves approximately as a harmonic oscillator).</li>
-              <li><strong>Optical cavities</strong> and <strong>laser modes</strong>, where the same Hermite&ndash;Gaussian functions describe electromagnetic field profiles.</li>
-              <li><strong>Quantum dots</strong> and <strong>trapped ions</strong>, where confinement potentials are often close to quadratic.</li>
+              <li><strong>Phonon modes</strong> in crystal lattices, where each atom oscillates about its equilibrium position.</li>
+              <li><strong>Optical cavities</strong> and <strong>laser modes</strong>, whose transverse field patterns are described by the same Hermite&ndash;Gaussian functions.</li>
+              <li><strong>Quantum dots</strong> and <strong>ion traps</strong>, where the confining potential is nearly parabolic.</li>
             </ul>
             <p>
-              The symmetry and separability of this system make it a cornerstone of quantum mechanics &mdash; simple enough to solve exactly, yet rich enough to model real physics and serve as a basis for perturbative and field-theoretic approaches.
+              Both physically and mathematically, the harmonic oscillator is a cornerstone of quantum mechanics: simple enough to solve exactly, yet rich enough to describe real systems. Its solutions form a natural basis for perturbation theory, quantum field quantization, and the study of coherent and squeezed states&mdash;making it not just a pedagogical model, but a prototype of quantized motion itself.
             </p>
           </div>
         </details>

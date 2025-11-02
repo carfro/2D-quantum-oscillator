@@ -482,39 +482,29 @@
 
   layoutTicks();
 
-  if (typeof ResizeObserver !== 'undefined' && sliderRow) {
-    const resizeObserver = new ResizeObserver(() => {
-      layoutTicks();
-    });
-    resizeObserver.observe(sliderRow);
-    resizeObserver.observe(nSlider);
-  } else {
-    window.addEventListener('load', layoutTicks);
-  }
-
   function layoutTicks() {
     if (!sliderRow) return;
+    const rowRect = sliderRow.getBoundingClientRect();
+    const sliderRect = nSlider.getBoundingClientRect();
     const computed = window.getComputedStyle(sliderRow);
-    const rowWidth = sliderRow.clientWidth;
-    const padLeft = parseFloat(computed.paddingLeft) || 0;
-    const padRight = parseFloat(computed.paddingRight) || 0;
     const thumbSize = parseFloat(computed.getPropertyValue('--slider-thumb-size')) || 20;
-
-    const trackStart = padLeft + thumbSize * 0.5;
-    const trackWidth = Math.max(0, rowWidth - padLeft - padRight - thumbSize);
-    const trackEnd = trackStart + trackWidth;
+    const trackLeftRaw = sliderRect.left - rowRect.left;
+    const trackWidthRaw = sliderRect.width;
+    const trackStart = trackLeftRaw + thumbSize * 0.5;
+    const effectiveWidth = Math.max(0, trackWidthRaw - thumbSize);
+    const trackEnd = trackStart + effectiveWidth;
 
     trackMetrics.left = trackStart;
-    trackMetrics.width = trackWidth;
+    trackMetrics.width = effectiveWidth;
     trackMetrics.thumb = thumbSize;
 
     sliderRow.style.setProperty('--slider-track-left', `${trackStart}px`);
-    sliderRow.style.setProperty('--slider-track-right', `${Math.max(0, rowWidth - trackEnd)}px`);
-    sliderRow.style.setProperty('--slider-track-width', `${Math.max(0, trackWidth)}px`);
+    sliderRow.style.setProperty('--slider-track-right', `${Math.max(0, rowRect.width - trackEnd)}px`);
+    sliderRow.style.setProperty('--slider-track-width', `${Math.max(0, effectiveWidth)}px`);
     if (sliderTicks) {
       tickSpans.forEach((tick, idx) => {
         const ratio = sliderSteps === 0 ? 0 : idx / sliderSteps;
-        const x = ratio * trackWidth;
+        const x = ratio * effectiveWidth;
         tick.style.left = `${x}px`;
       });
     }
@@ -538,11 +528,7 @@
   function renderMath(el, latex) {
     el.innerHTML = `\\(${latex}\\)`;
     if (window.MathJax && MathJax.typesetPromise) {
-      MathJax.typesetPromise([el])
-        .then(() => layoutTicks())
-        .catch(() => {});
-    } else {
-      layoutTicks();
+      MathJax.typesetPromise([el]).catch(() => {});
     }
   }
 
