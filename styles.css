@@ -284,7 +284,7 @@ body {
   cursor: pointer;
   transition: filter 0.18s ease, box-shadow 0.18s ease;
 }
-.theory:hover {
+.theory[data-state="closed"]:hover {
   filter: brightness(1.022);
   box-shadow: 0 0 12px rgba(80, 140, 255, 0.10);
 }
