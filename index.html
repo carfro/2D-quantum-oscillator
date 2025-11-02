@@ -67,17 +67,102 @@
         </div>
 
         <details class="theory" id="theoryPanel">
-          <summary class="theory__summary">Theory &amp; Derivation</summary>
+          <summary class="theory__summary">From Schrödinger to Hermite</summary>
           <div class="theory__body">
+            <h2>From Schrödinger to Hermite &mdash; the Quantum Harmonic Oscillator</h2>
+
+            <h3>The Quantum Harmonic Oscillator</h3>
             <p>
-              This surface plots the Hermite–Gaussian eigenfunctions of the isotropic 2D quantum harmonic oscillator:
-              <span class="math">\( \psi_{n_x,n_y}(x,y) = \phi_{n_x}(x)\,\phi_{n_y}(y) \)</span>.
+              The two-dimensional <em>quantum harmonic oscillator</em> models a particle of mass \( m \) confined by a quadratic potential.
             </p>
+            <div class="math">$$
+            V(x, y) = \tfrac{1}{2} m \omega^2 (x^2 + y^2)
+            $$</div>
             <p>
-              Each one-dimensional mode is given by
-              <span class="math">\( \phi_n(\xi) = \frac{1}{\sqrt{2^n n!}} H_n(\xi)\, e^{-\xi^2/2} \)</span>,
-              and the energy spectrum follows
-              <span class="math">\( E_{n_x,n_y} = (n_x+n_y+1)\hbar\omega \)</span>.
+              with the stationary Schr&ouml;dinger equation
+            </p>
+            <div class="math">$$
+            \hat{H}\Psi(x,y) = E\Psi(x,y), \qquad
+            \hat{H} = -\frac{\hbar^2}{2m}
+            \left(
+            \frac{\partial^2}{\partial x^2} + \frac{\partial^2}{\partial y^2}
+            \right)
+            + \tfrac{1}{2} m \omega^2 (x^2 + y^2).
+            $$</div>
+            <p>
+              Because \( V(x,y) \) separates into independent \( x \)- and \( y \)-parts, the total wavefunction factorizes as
+            </p>
+            <div class="math">$$
+            \Psi_{n_x,n_y}(x,y) = \psi_{n_x}(x)\psi_{n_y}(y).
+            $$</div>
+
+            <h3>One-Dimensional Solution</h3>
+            <p>
+              Each factor satisfies the 1D oscillator equation
+            </p>
+            <div class="math">$$
+            -\frac{\hbar^2}{2m}\frac{d^2\psi_n(x)}{dx^2}
+            + \frac{1}{2}m\omega^2 x^2\psi_n(x)
+            = E_n\psi_n(x),
+            $$</div>
+            <p>whose normalized solutions are</p>
+            <div class="math">$$
+            \psi_n(x) =
+            \frac{1}{\sqrt{2^n n!}}
+            \left(\frac{m\omega}{\pi\hbar}\right)^{1/4}
+            e^{-m\omega x^2 / 2\hbar}
+            H_n\left(\sqrt{\tfrac{m\omega}{\hbar}}x\right),
+            $$</div>
+            <p>
+              where \( H_n(x) \) are the <strong>Hermite polynomials</strong> and
+            </p>
+            <div class="math">$$
+            E_n = \hbar\omega\left(n + \tfrac{1}{2}\right).
+            $$</div>
+
+            <h3>Hermite Polynomials</h3>
+            <p>The Hermite polynomials arise from differentiating a Gaussian:</p>
+            <div class="math">$$
+            H_n(x) = (-1)^n e^{x^2}
+            \frac{d^n}{dx^n}\left(e^{-x^2}\right),
+            $$</div>
+            <p>and satisfy the recurrence relations</p>
+            <div class="math">$$
+            \begin{aligned}
+            H_0(x) &= 1, \qquad H_1(x) = 2x,\\[4pt]
+            H_{n+1}(x) &= 2xH_n(x) - 2nH_{n-1}(x).
+            \end{aligned}
+            $$</div>
+            <p>
+              In the normalized Hermite&ndash;Gaussian basis, this recurrence becomes numerically stable and forms the foundation for the GPU implementation you see rendered above.
+            </p>
+
+            <h3>Energy Spectrum and Degeneracy</h3>
+            <p>
+              In two dimensions, the total energy is the sum of the two independent oscillators:
+            </p>
+            <div class="math">$$
+            E_{n_x,n_y}
+            = \hbar\omega(n_x + n_y + 1),
+            $$</div>
+            <p>
+              and all pairs of quantum numbers with the same \( N = n_x + n_y \) share the same energy &mdash; a degeneracy of
+            </p>
+            <div class="math">$$
+            g_N = N + 1.
+            $$</div>
+
+            <h3>Physical Insight</h3>
+            <p>
+              The 2D harmonic oscillator describes vibrations and excitations wherever a restoring force is linear near equilibrium &mdash; for instance:
+            </p>
+            <ul>
+              <li><strong>Phonon modes</strong> in crystal lattices (each atom behaves approximately as a harmonic oscillator).</li>
+              <li><strong>Optical cavities</strong> and <strong>laser modes</strong>, where the same Hermite&ndash;Gaussian functions describe electromagnetic field profiles.</li>
+              <li><strong>Quantum dots</strong> and <strong>trapped ions</strong>, where confinement potentials are often close to quadratic.</li>
+            </ul>
+            <p>
+              The symmetry and separability of this system make it a cornerstone of quantum mechanics &mdash; simple enough to solve exactly, yet rich enough to model real physics and serve as a basis for perturbative and field-theoretic approaches.
             </p>
           </div>
         </details>

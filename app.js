@@ -455,6 +455,9 @@
   const energyE = document.getElementById('energyE');
   const degenEl = document.getElementById('degeneracyG');
   const resetBtn= document.getElementById('resetBtn');
+  const theoryPanel = document.getElementById('theoryPanel');
+  const theorySummary = theoryPanel ? theoryPanel.querySelector('.theory__summary') : null;
+  const theoryBody = theoryPanel ? theoryPanel.querySelector('.theory__body') : null;
   const sliderMin = parseFloat(nSlider.min || '0');
   const sliderMax = parseFloat(nSlider.max || '12');
   const sliderStep = parseFloat(nSlider.step || '1');
@@ -554,6 +557,21 @@
     setN(0);
     fitView({ animate: true });
   });
+
+  if (theoryPanel && theoryBody) {
+    theoryBody.addEventListener('click', (event) => {
+      // Allow text selection without collapsing when user is actively selecting
+      const selection = window.getSelection && window.getSelection();
+      if (selection && selection.toString().length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!theoryPanel.open) return;
+      theoryPanel.open = false;
+      if (theorySummary && typeof theorySummary.focus === 'function') {
+        theorySummary.focus({ preventScroll: true });
+      }
+    });
+  }
 
   setN(parseInt(nSlider.value, 10));
   updateSliderDecor(parseInt(nSlider.value, 10));
