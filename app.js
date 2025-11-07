@@ -506,6 +506,8 @@
         const ratio = sliderSteps === 0 ? 0 : idx / sliderSteps;
         const x = ratio * effectiveWidth;
         tick.style.left = `${x}px`;
+        // Hide edge ticks to avoid visual conflict with rounded rail caps
+        tick.style.opacity = (idx === 0 || idx === sliderSteps) ? '0' : '';
       });
     }
     updateSliderDecor(parseFloat(nSlider.value || sliderMin));
@@ -546,7 +548,8 @@
     renderHeading(n);
     renderMath(stateEl, `\\psi_{${n},${n}}(x, y)`);
     const coeff = (2 * n) + 1;     // E = (2n+1) ħω ; g = 2n+1
-    renderMath(energyE, `E = ${coeff}\\,\\hbar\\omega`);
+    const energyStr = coeff === 1 ? `E = \\hbar\\omega` : `E = ${coeff}\\,\\hbar\\omega`;
+    renderMath(energyE, energyStr);
     renderMath(degenEl, `${coeff}`);
     updateSliderDecor(n);
   };
@@ -566,6 +569,75 @@
     let theoryAnimating = false;
 
     const easeOut = 'cubic-bezier(0.2, 0.0, 0, 1)';
+    const panelEaseOpen = 'cubic-bezier(0.18, 0.0, 0.0, 1)';
+    const panelEaseClose = 'cubic-bezier(0.33, 0.0, 0.07, 1)';
+    const panelDurations = { open: 620, close: 540 };
+
+    const parsePx = (value) => (value ? parseFloat(value) : 0) || 0;
+
+    const waitForAnimation = (anim, cleanup) => {
+      if (!anim) {
+        if (typeof cleanup === 'function') cleanup();
+        return Promise.resolve();
+      }
+      return new Promise((resolve) => {
+        const finish = () => {
+          if (typeof cleanup === 'function') cleanup();
+          anim.removeEventListener('finish', finish);
+          anim.removeEventListener('cancel', finish);
+          resolve();
+        };
+        anim.addEventListener('finish', finish, { once: true });
+        anim.addEventListener('cancel', finish, { once: true });
+      });
+    };
+
+    const playPanelFlip = ({ direction, fromRect, toRect }) => {
+      const translateX = toRect.left - fromRect.left;
+      const translateY = toRect.top - fromRect.top;
+      const scaleX = fromRect.width ? toRect.width / fromRect.width : 1;
+      const scaleY = fromRect.height ? toRect.height / fromRect.height : 1;
+      const invScaleX = scaleX ? 1 / scaleX : 1;
+      const invScaleY = scaleY ? 1 / scaleY : 1;
+
+      const keyframes = direction === 'open'
+        ? [
+            { transform: `translate(${-translateX}px, ${-translateY}px) scale(${invScaleX}, ${invScaleY})` },
+            { transform: 'translate(0px, 0px) scale(1, 1)' }
+          ]
+        : [
+            { transform: 'translate(0px, 0px) scale(1, 1)' },
+            { transform: `translate(${translateX}px, ${translateY}px) scale(${scaleX}, ${scaleY})` }
+          ];
+
+      theoryPanel.style.willChange = 'transform';
+      const anim = theoryPanel.animate(keyframes, {
+        duration: direction === 'open' ? panelDurations.open : panelDurations.close,
+        easing: direction === 'open' ? panelEaseOpen : panelEaseClose,
+        fill: 'none'
+      });
+      anim.addEventListener('finish', () => {
+        theoryPanel.style.willChange = '';
+      }, { once: true });
+      anim.addEventListener('cancel', () => {
+        theoryPanel.style.willChange = '';
+      }, { once: true });
+      return anim;
+    };
+
+    const synthesizeCollapsedRect = (expandedRect) => {
+      const summaryRect = theorySummary.getBoundingClientRect();
+      const panelStyles = window.getComputedStyle(theoryPanel);
+      const borderTop = parsePx(panelStyles.borderTopWidth);
+      const borderBottom = parsePx(panelStyles.borderBottomWidth);
+      const collapsedHeight = summaryRect.height + borderTop + borderBottom;
+      return {
+        top: expandedRect.top,
+        left: expandedRect.left,
+        width: expandedRect.width,
+        height: collapsedHeight
+      };
+    };
 
     const createMorphNode = (text, referenceEl) => {
       const node = document.createElement('span');
@@ -585,8 +657,32 @@
       return node;
     };
 
-    const setSummaryOpacity = (value) => {
-      theorySummaryLabel.style.opacity = value;
+    const fadeSummary = (target, options = {}) => {
+      if (!theorySummaryLabel) return Promise.resolve();
+      const end = Math.max(0, Math.min(1, target));
+      const computed = parseFloat(window.getComputedStyle(theorySummaryLabel).opacity);
+      const start = Number.isFinite(computed) ? computed : (end === 0 ? 1 : 0);
+      if (Math.abs(start - end) < 0.005) {
+        theorySummaryLabel.style.opacity = `${end}`;
+        return Promise.resolve();
+      }
+      theorySummaryLabel.style.willChange = 'opacity';
+      const anim = theorySummaryLabel.animate(
+        [
+          { opacity: start },
+          { opacity: end }
+        ],
+        {
+          duration: options.duration ?? 260,
+          delay: options.delay ?? 0,
+          easing: options.easing ?? easeOut,
+          fill: 'forwards'
+        }
+      );
+      return waitForAnimation(anim, () => {
+        theorySummaryLabel.style.opacity = `${end}`;
+        theorySummaryLabel.style.willChange = '';
+      });
     };
 
     const runMorph = ({ fromRect, toRect, direction }) => {
@@ -623,15 +719,16 @@
     };
 
     const animateTheoryOpen = () => {
-      if (theoryAnimating || theoryPanel.open && theoryPanel.dataset.state === 'open') return;
+      if (theoryAnimating || (theoryPanel.open && theoryPanel.dataset.state === 'open')) return;
       theoryAnimating = true;
 
-      const summaryRect = theorySummaryLabel.getBoundingClientRect();
+      const collapsedRect = theoryPanel.getBoundingClientRect();
       theoryPanel.dataset.state = 'opening';
       theoryPanel.open = true;
       theorySummary.setAttribute('aria-expanded', 'true');
 
       requestAnimationFrame(() => {
+        const expandedRect = theoryPanel.getBoundingClientRect();
         const headingRect = theoryHeadingPrimary.getBoundingClientRect();
 
         if (theoryBody) {
@@ -646,16 +743,22 @@
           theoryHeadingSecondary.style.opacity = '0';
         }
 
+        const panelAnim = playPanelFlip({
+          direction: 'open',
+          fromRect: collapsedRect,
+          toRect: expandedRect
+        });
+
         const { animation: morphAnim, morph } = runMorph({
-          fromRect: summaryRect,
+          fromRect: theorySummaryLabel.getBoundingClientRect(),
           toRect: headingRect,
           direction: 'open'
         });
 
-        setSummaryOpacity('0');
+        const summaryFade = fadeSummary(0, { duration: 280, easing: panelEaseOpen });
         theorySummaryLabel.setAttribute('aria-hidden', 'true');
 
-        morphAnim.onfinish = () => {
+        const morphDone = waitForAnimation(morphAnim, () => {
           morph.remove();
           if (theoryHeadingPrimary) {
             theoryHeadingPrimary.style.opacity = '1';
@@ -664,43 +767,57 @@
             });
           }
           if (theoryBody) {
-            theoryBody.animate(
-              [
-                { opacity: 0, transform: 'translateY(14px)' },
-                { opacity: 1, transform: 'translateY(0)' }
-              ],
-              { duration: 320, easing: easeOut, fill: 'forwards' }
-            ).onfinish = () => {
-              theoryBody.style.opacity = '';
-              theoryBody.style.transform = '';
-              theoryBody.style.pointerEvents = '';
-            };
+            waitForAnimation(
+              theoryBody.animate(
+                [
+                  { opacity: 0, transform: 'translateY(14px)' },
+                  { opacity: 1, transform: 'translateY(0)' }
+                ],
+                { duration: 320, easing: easeOut, fill: 'forwards' }
+              ),
+              () => {
+                theoryBody.style.opacity = '';
+                theoryBody.style.transform = '';
+                theoryBody.style.pointerEvents = '';
+              }
+            );
           }
           if (theoryHeadingSecondary) {
-            theoryHeadingSecondary.animate(
-              [
-                { opacity: 0, transform: 'translateY(8px)' },
-                { opacity: 1, transform: 'translateY(0)' }
-              ],
-              { duration: 320, easing: easeOut, delay: 160, fill: 'forwards' }
-            ).onfinish = () => {
-              theoryHeadingSecondary.style.opacity = '';
-              theoryHeadingSecondary.style.transform = '';
-            };
+            waitForAnimation(
+              theoryHeadingSecondary.animate(
+                [
+                  { opacity: 0, transform: 'translateY(8px)' },
+                  { opacity: 1, transform: 'translateY(0)' }
+                ],
+                { duration: 320, easing: easeOut, delay: 160, fill: 'forwards' }
+              ),
+              () => {
+                theoryHeadingSecondary.style.opacity = '';
+                theoryHeadingSecondary.style.transform = '';
+              }
+            );
           }
+        });
+
+        const panelDone = waitForAnimation(panelAnim);
+
+        Promise.all([panelDone, morphDone, summaryFade]).then(() => {
           theoryPanel.dataset.state = 'open';
           theoryAnimating = false;
-        };
+        });
       });
     };
 
     const animateTheoryClose = () => {
       if (theoryAnimating || !theoryPanel.open) return;
       theoryAnimating = true;
-      theoryPanel.dataset.state = 'closing';
 
+      const expandedRect = theoryPanel.getBoundingClientRect();
+      const collapsedRect = synthesizeCollapsedRect(expandedRect);
       const headingRect = theoryHeadingPrimary.getBoundingClientRect();
       const summaryRect = theorySummaryLabel.getBoundingClientRect();
+
+      theoryPanel.dataset.state = 'closing';
 
       if (theoryHeadingSecondary) {
         theoryHeadingSecondary.style.opacity = '0';
@@ -708,20 +825,30 @@
       if (theoryHeadingPrimary) {
         theoryHeadingPrimary.style.opacity = '0';
       }
+      let bodyPromise = Promise.resolve();
       if (theoryBody) {
-        theoryBody.animate(
-          [
-            { opacity: 1, transform: 'translateY(0)' },
-            { opacity: 0, transform: 'translateY(12px)' }
-          ],
-          { duration: 260, easing: easeOut, fill: 'forwards' }
-        ).onfinish = () => {
-          theoryBody.style.opacity = '';
-          theoryBody.style.transform = '';
-          theoryBody.style.pointerEvents = '';
-        };
         theoryBody.style.pointerEvents = 'none';
+        bodyPromise = waitForAnimation(
+          theoryBody.animate(
+            [
+              { opacity: 1, transform: 'translateY(0)' },
+              { opacity: 0, transform: 'translateY(12px)' }
+            ],
+            { duration: 260, easing: easeOut, fill: 'forwards' }
+          ),
+          () => {
+            theoryBody.style.opacity = '';
+            theoryBody.style.transform = '';
+            theoryBody.style.pointerEvents = '';
+          }
+        );
       }
+
+      const panelAnim = playPanelFlip({
+        direction: 'close',
+        fromRect: expandedRect,
+        toRect: collapsedRect
+      });
 
       const { animation: morphAnim, morph } = runMorph({
         fromRect: headingRect,
@@ -729,13 +856,14 @@
         direction: 'close'
       });
 
-      morphAnim.onfinish = () => {
+      theorySummaryLabel.setAttribute('aria-hidden', 'false');
+      const summaryFade = fadeSummary(1, { duration: 260, easing: panelEaseClose, delay: 80 });
+      const morphDone = waitForAnimation(morphAnim, () => {
         morph.remove();
-        setSummaryOpacity('1');
-        requestAnimationFrame(() => {
-          theorySummaryLabel.style.opacity = '';
-        });
-        theorySummaryLabel.setAttribute('aria-hidden', 'false');
+      });
+      const panelDone = waitForAnimation(panelAnim);
+
+      Promise.all([panelDone, morphDone, bodyPromise, summaryFade]).then(() => {
         theoryPanel.open = false;
         theoryPanel.dataset.state = 'closed';
         theorySummary.setAttribute('aria-expanded', 'false');
@@ -750,7 +878,7 @@
         if (typeof theorySummary.focus === 'function') {
           theorySummary.focus({ preventScroll: true });
         }
-      };
+      });
     };
 
     const toggleTheoryPanel = (explicit) => {
