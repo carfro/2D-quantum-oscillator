@@ -70,6 +70,7 @@ body {
   border: 1px solid #1b1d24;
   background: linear-gradient(180deg, #0e0f13, #0b0c10);
   overflow: hidden;
+  touch-action: none;
 }
 
 .overlay-tip {
