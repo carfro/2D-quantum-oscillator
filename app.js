@@ -116,7 +116,7 @@
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.enablePan = false;
-  controls.rotateSpeed = 0.7;
+  controls.rotateSpeed = 0.05;
   controls.zoomSpeed = 0.6;
   controls.target.set(0, 0, 0);
 
