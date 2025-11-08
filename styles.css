@@ -48,7 +48,7 @@ body {
 .card__hdr h1 {
   margin: 0 0 6px;
   font-weight: 800;
-  font-size: 30px;
+  font-size: 32px;
   letter-spacing: 0.01em;
 }
 .card__hdr .sub {
@@ -105,7 +105,7 @@ body {
   margin: 0;
   color: var(--ink);
   font-weight: 700;
-  font-size: clamp(14px, 1.8vw, 20px);
+  font-size: 18px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -260,7 +260,7 @@ body {
 }
 .pill__value {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .reset {
@@ -360,6 +360,9 @@ body {
 .theory__body p {
   margin: 0;
   line-height: 1.5;
+}
+.theory__body .math {
+  font-size: 16px;
 }
 
 .theory__morphNode {
