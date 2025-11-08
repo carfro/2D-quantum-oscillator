@@ -2,7 +2,7 @@
 (() => {
   if (typeof THREE === 'undefined' || THREE.OrbitControls) return;
   // --- minimal OrbitControls (rotate LMB, zoom wheel/middle) ---
-  const STATE = { NONE: -1, ROTATE: 0, DOLLY: 1 };
+  const STATE = { NONE: -1, ROTATE: 0, DOLLY: 1, TOUCH_ROTATE: 2, TOUCH_DOLLY_PAN: 3 };
   function OrbitControls(object, domElement) {
     if (!domElement) throw new Error('DOM element required.');
     this.object = object; this.domElement = domElement;
@@ -15,18 +15,61 @@
     const qi = q.clone().invert(); let state = STATE.NONE, scale = 1;
     const rs = new THREE.Vector2(), re = new THREE.Vector2(), rd = new THREE.Vector2();
     const ds = new THREE.Vector2(), de = new THREE.Vector2(), dd = new THREE.Vector2();
-    const onPD = (e)=>{ if(e.button===0){rs.set(e.clientX,e.clientY);state=STATE.ROTATE;}
-                        else if(e.button===1){ds.set(e.clientX,e.clientY);state=STATE.DOLLY;}
-                        domElement.setPointerCapture(e.pointerId); };
-    const onPM = (e)=>{ if(state===STATE.ROTATE){
-                          re.set(e.clientX,e.clientY); rd.subVectors(re,rs).multiplyScalar(this.rotateSpeed);
-                          const el = domElement.clientHeight;
-                          dS.theta -= (2*Math.PI*rd.x)/el; dS.phi -= (2*Math.PI*rd.y)/el; rs.copy(re);
-                        } else if(state===STATE.DOLLY){
-                          de.set(e.clientX,e.clientY); dd.subVectors(de,ds);
-                          scale *= (dd.y>0? 1/Math.pow(0.95,this.zoomSpeed): Math.pow(0.95,this.zoomSpeed)); ds.copy(de);
-                        } this.update(); };
-    const onPU = (e)=>{ domElement.releasePointerCapture(e.pointerId); state=STATE.NONE; };
+    const pointers = []; const pointerPositions = {};
+    const getSecondPointerPosition = (e) => {
+      const pointer = (e.pointerId === pointers[0]) ? pointers[1] : pointers[0];
+      return pointerPositions[pointer];
+    };
+    const onPD = (e)=>{
+      pointers.push(e.pointerId);
+      pointerPositions[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if(pointers.length === 1){
+        if(e.pointerType === 'touch'){
+          rs.set(e.clientX,e.clientY); state=STATE.TOUCH_ROTATE;
+        } else if(e.button===0){
+          rs.set(e.clientX,e.clientY); state=STATE.ROTATE;
+        } else if(e.button===1){
+          ds.set(e.clientX,e.clientY); state=STATE.DOLLY;
+        }
+      } else if(pointers.length === 2 && e.pointerType === 'touch'){
+        const p2 = getSecondPointerPosition(e);
+        const dx = e.clientX - p2.x, dy = e.clientY - p2.y;
+        ds.set(0, Math.sqrt(dx*dx + dy*dy)); state=STATE.TOUCH_DOLLY_PAN;
+      }
+      if(pointers.length <= 2) domElement.setPointerCapture(e.pointerId);
+    };
+    const onPM = (e)=>{
+      if(pointers.length === 1 && state===STATE.ROTATE){
+        re.set(e.clientX,e.clientY); rd.subVectors(re,rs).multiplyScalar(this.rotateSpeed);
+        const el = domElement.clientHeight;
+        dS.theta -= (2*Math.PI*rd.x)/el; dS.phi -= (2*Math.PI*rd.y)/el; rs.copy(re);
+        this.update();
+      } else if(pointers.length === 1 && state===STATE.TOUCH_ROTATE){
+        re.set(e.clientX,e.clientY); rd.subVectors(re,rs).multiplyScalar(this.rotateSpeed);
+        const el = domElement.clientHeight;
+        dS.theta -= (2*Math.PI*rd.x)/el; dS.phi -= (2*Math.PI*rd.y)/el; rs.copy(re);
+        this.update();
+      } else if(state===STATE.DOLLY){
+        de.set(e.clientX,e.clientY); dd.subVectors(de,ds);
+        scale *= (dd.y>0? 1/Math.pow(0.95,this.zoomSpeed): Math.pow(0.95,this.zoomSpeed)); ds.copy(de);
+        this.update();
+      } else if(pointers.length === 2 && state===STATE.TOUCH_DOLLY_PAN){
+        pointerPositions[e.pointerId] = { x: e.clientX, y: e.clientY };
+        const p2 = getSecondPointerPosition(e);
+        const dx = e.clientX - p2.x, dy = e.clientY - p2.y;
+        const distance = Math.sqrt(dx*dx + dy*dy);
+        de.set(0, distance); dd.subVectors(de,ds);
+        scale *= (dd.y>0? Math.pow(0.95,this.zoomSpeed): 1/Math.pow(0.95,this.zoomSpeed)); ds.copy(de);
+        this.update();
+      }
+    };
+    const onPU = (e)=>{
+      const idx = pointers.indexOf(e.pointerId);
+      if(idx !== -1) pointers.splice(idx, 1);
+      delete pointerPositions[e.pointerId];
+      domElement.releasePointerCapture(e.pointerId);
+      if(pointers.length === 0) state=STATE.NONE;
+    };
     const onWheel=(e)=>{ e.preventDefault(); scale *= (e.deltaY>0? 1/Math.pow(0.95,this.zoomSpeed): Math.pow(0.95,this.zoomSpeed)); this.update(); };
     this.update = (()=>{ const off = new THREE.Vector3(); return ()=>{
       const pos=this.object.position; off.copy(pos).sub(this.target).applyQuaternion(q);
