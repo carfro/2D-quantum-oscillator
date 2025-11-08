@@ -48,6 +48,7 @@ body {
 .card__hdr h1 {
   margin: 0 0 6px;
   font-weight: 800;
+  font-size: 30px;
   letter-spacing: 0.01em;
 }
 .card__hdr .sub {
@@ -237,12 +238,14 @@ body {
 }
 
 .controls__readouts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin: 6px 0 10px;
 }
 .pill {
+  flex: 1 1 0;
+  min-width: fit-content;
   background: var(--pill);
   border: 1px solid var(--pillBorder);
   border-radius: 10px;
@@ -267,6 +270,7 @@ body {
   border: 1px solid #2a2d36;
   background: linear-gradient(180deg, #14161c, #101218);
   color: #e6e8ee;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
