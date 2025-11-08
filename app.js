@@ -8,7 +8,7 @@
     this.object = object; this.domElement = domElement;
     this.enableDamping = true; this.dampingFactor = 0.08;
     this.enableZoom = true; this.zoomSpeed = 0.9;
-    this.enableRotate = true; this.rotateSpeed = 0.9;
+    this.enableRotate = true; this.rotateSpeed = 0.05;
     this.enablePan = false; this.target = new THREE.Vector3();
     const sph = new THREE.Spherical(), dS = new THREE.Spherical();
     const q = new THREE.Quaternion().setFromUnitVectors(object.up, new THREE.Vector3(0,1,0));
@@ -380,8 +380,8 @@
       float z = sqrt(1.0 - r2);
       vec3 n = normalize(vec3(p, z));
 
-      // single view-space light for “pearl” look
-      vec3 L = normalize(vec3(0.35, 0.55, 0.76));
+      // grazing light for better top-view variation
+      vec3 L = normalize(vec3(0.7, 0.5, 0.4));
       float lambert = max(dot(n, L), 0.0);
 
       // subtle rim so dots pop on dark bg
@@ -398,8 +398,9 @@
       // crestFocus/crestGlow – accentuate the very top of the surface
       float crest = clamp((vZ + 1.0) * 0.5, 0.0, 1.0);
       float fadeWide = smoothstep(-0.9, 1.2, vZ);
-      float crestFocus = smoothstep(0.18, 0.95, crest);
-      float crestGlow = smoothstep(0.48, 0.95, crest);
+      // Sharp contrast at z=0, smooth exponential to peak at z=1
+      float crestFocus = smoothstep(0.18, 1.0, crest);
+      float crestGlow = smoothstep(0.48, 1.0, crest);
 
       // Diverging color map in linear RGB: negative trough (dark blue) → zero (neutral grey) → positive crest (bright white)
       vec3 negColorLin = srgbToLinear(vec3(0.48, 0.58, 0.94));
@@ -419,8 +420,8 @@
       vec3 tint = mix(tintLow, tintHigh, crestFocus);
 
       float shadeStretch = mix(0.55, 1.38, fadeWide);
-      float crestBoost = mix(1.0, 3.6, crestFocus);
-      float apexGlow = mix(0.0, 2.6, crestGlow);
+      float crestBoost = mix(1.0, 5.5, crestFocus);
+      float apexGlow = mix(0.0, 4.2, crestGlow);
       float densityGain = clamp(1.0 + 2.2 / (vDist + 0.35), 1.0, 4.8);
 
       vec3 col = baseTone * tint * shadeBase * shadeStretch * (0.55 + 0.22 * I);
